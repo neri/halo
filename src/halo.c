@@ -257,6 +257,18 @@ static void* acpi_find_descriptor_table(acpi_rsd_ptr_t* acpi_rsd, char* name) {
 
 //----------------------------------------------------------------------------
 
+EFI_STATUS gop_check(EFI_GRAPHICS_OUTPUT_PROTOCOL* gop) {
+    EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE* mode = gop->Mode;
+    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* info = mode->Info;
+    if (info->PixelFormat != PixelBlueGreenRedReserved8BitPerColor) {
+        return EFI_UNSUPPORTED;
+    }else if (info->HorizontalResolution != info->PixelsPerScanLine) {
+        return EFI_UNSUPPORTED;
+    } else {
+        return EFI_SUCCESS;
+    }
+}
+
 EFI_STATUS init_gop (IN EFI_HANDLE image, OUT EFI_GRAPHICS_OUTPUT_PROTOCOL** _gop) {
 
     EFI_STATUS status;
@@ -298,6 +310,17 @@ EFI_STATUS init_gop (IN EFI_HANDLE image, OUT EFI_GRAPHICS_OUTPUT_PROTOCOL** _go
             }
             if(mode->Mode != mode_to_be) {
                 uefi_call_wrapper(gop->SetMode, 2, gop, mode_to_be);
+            }
+            status = gop_check(gop);
+            if (EFI_ERROR(status)) {
+                if (mode->Mode != 0) {
+                    uefi_call_wrapper(gop->SetMode, 2, gop, 0);
+                    status = gop_check(gop);
+                }
+                if (EFI_ERROR(status)) {
+                    efi_puts("Error: UNSUPPORTED VIDEO MODE\n");
+                    return status;
+                }
             }
         }
     }

@@ -1,7 +1,7 @@
 ;
 ;   HALO: HAribote-os LOader for EFI
 ;
-;   Copyright (c) 2016 MEG-OS project, All rights reserved.
+;   Copyright (c) 2016 Nerry, All rights reserved.
 ;
 ;   Permission is hereby granted, free of charge, to any person obtaining a copy
 ;   of this software and associated documentation files (the "Software"), to deal

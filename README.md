@@ -36,7 +36,7 @@ UEFI環境ではりぼてOS系のOSをロードします。
 * clang (or gcc)
 * binutils
 * gnu-efi
-
+* nasm
 
 ## 手順
 

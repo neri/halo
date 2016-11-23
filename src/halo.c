@@ -39,6 +39,7 @@
 // 00400000-         FREE
 
 #define MIN_ALLOC   256*3
+#define PA_BOOTPACK 0x00100000
 #define BOOTPACK    0x00280000
 #define DISKCACHE   0x00100000
 
@@ -329,13 +330,18 @@ EFI_STATUS init_gop (IN EFI_HANDLE image, OUT EFI_GRAPHICS_OUTPUT_PROTOCOL** _go
     return EFI_SUCCESS;
 }
 
+//  convert effective address
+static inline EFI_PHYSICAL_ADDRESS bootpack_ea(EFI_PHYSICAL_ADDRESS alloc, EFI_PHYSICAL_ADDRESS rva) {
+    return alloc+rva-PA_BOOTPACK;
+}
+
 
 EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab) {
     EFI_STATUS status;
     EFI_FILE_HANDLE efi_fs = NULL;
     EFI_GRAPHICS_OUTPUT_PROTOCOL* gop = NULL;
 
-    BOOLEAN bootpack_alloc_ok = FALSE;
+    EFI_PHYSICAL_ADDRESS bootpack_alloc = NULL;
 
     gST = systab;
     gBS = systab->BootServices;
@@ -359,16 +365,20 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab) {
 
     //  Allocate memory for haribote
     UINTN sz_bootpack = MIN_ALLOC;
-    EFI_PHYSICAL_ADDRESS pa_bootpack = 0x00100000;
+    EFI_PHYSICAL_ADDRESS pa_bootpack = PA_BOOTPACK;
     status = uefi_call_wrapper(gBS->AllocatePages, 4, AllocateAddress, EfiLoaderData, sz_bootpack, &pa_bootpack);
     if(EFI_ERROR(status)) {
-        efi_puts("Error: Can't allocate memory\n");
-        goto error;
+        pa_bootpack = 0x7FFFF000;
+        status = uefi_call_wrapper(gBS->AllocatePages, 4, AllocateMaxAddress, EfiLoaderData, sz_bootpack, &pa_bootpack);
+        if(EFI_ERROR(status)) {
+            efi_puts("Error: Can't allocate memory\n");
+            goto error;
+        }
     }
-    bootpack_alloc_ok = TRUE;
+    bootpack_alloc = pa_bootpack;
 
     //  load haribote.bhs
-    hari_hrb_file_t* bhs = (hari_hrb_file_t*)BOOTPACK;
+    hari_hrb_file_t* bhs = (hari_hrb_file_t*)bootpack_ea(bootpack_alloc, BOOTPACK);
     status = efi_get_file_content(efi_fs, L"EFI\\halo\\haribote.bhs", bhs, NULL);
     if(EFI_ERROR(status)) {
         efi_puts("Error: Can't read haribote.bhs\n");
@@ -387,7 +397,7 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab) {
     }
 
     //  load haribote.img
-    status = efi_get_file_content(efi_fs, L"EFI\\halo\\haribote.img", (void*)DISKCACHE, NULL);
+    status = efi_get_file_content(efi_fs, L"EFI\\halo\\haribote.img", (void*)bootpack_ea(bootpack_alloc, DISKCACHE), NULL);
     if(EFI_ERROR(status)) {
         efi_puts("Error: Can't read haribote.img\n");
         goto error;
@@ -476,7 +486,11 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab) {
         break;
     }
 
-    //  relocate data
+    //  relocate
+    if(bootpack_alloc != PA_BOOTPACK) {
+        memcpy((void*)PA_BOOTPACK, (void*)bootpack_alloc, sz_bootpack*0x1000);
+        bhs = (hari_hrb_file_t*)BOOTPACK;
+    }
     memcpy((void*)(uintptr_t)(bhs->esp), ((uint8_t*)bhs)+bhs->dathrb, bhs->datsiz);
 
     //  Boot haribote
@@ -492,8 +506,8 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab) {
     start_kernel(&regs);
 
 error:
-    if(bootpack_alloc_ok) {
-        uefi_call_wrapper(gBS->FreePages, 2, pa_bootpack, sz_bootpack);
+    if(bootpack_alloc) {
+        uefi_call_wrapper(gBS->FreePages, 2, bootpack_alloc, sz_bootpack);
     }
 
     efi_puts("    Press any key to exit...\n");

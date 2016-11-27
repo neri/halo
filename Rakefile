@@ -2,7 +2,7 @@
 #
 # Rakefile for HALO
 #
-# Copyright(C)2016 MEG-OS project, ALL RIGHTS RESERVED.
+# Copyright(C)2016 Nerry, ALL RIGHTS RESERVED.
 #
 require 'rake/clean'
 require 'rake/packagetask'

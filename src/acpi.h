@@ -15,6 +15,11 @@ typedef struct _acpi_rsd_ptr_t {
     uint8_t    reserved[3];
 } __attribute__((packed)) acpi_rsd_ptr_t;
 
+typedef struct _acpi_gas_t {
+    uint8_t     address_space_id, bit_width, bit_offset, accesss_size;
+    uint64_t    address;
+} acpi_gas_t;
+
 typedef struct _acpi_header_t {
     char        signature[4];
     uint32_t    length;
@@ -26,6 +31,20 @@ typedef struct _acpi_header_t {
     uint32_t    creator_id;
     uint32_t    creator_rev;
 } __attribute__((packed)) acpi_header_t;
+
+
+//  RSDT Root System Description Table
+typedef struct _acpi_rsdt_t {
+    acpi_header_t   Header;
+    uint32_t    Entry[];
+} acpi_rsdt_t;
+
+
+//  XSDT Extended System Description Table
+typedef struct _acpi_xsdt_t {
+    acpi_header_t   Header;
+    uint64_t    Entry[];
+} __attribute__((packed)) acpi_xsdt_t;
 
 
 //  FADT/FACP Fixed ACPI Descriptor Table
@@ -47,7 +66,7 @@ typedef struct _acpi_fadt_t {
     uint16_t    IAPC_BOOT_ARCH;
     uint8_t     Reserved2;
     uint32_t    Flags;
-    uint8_t     RESET_REG[12];
+    acpi_gas_t  RESET_REG;
     uint8_t     RESET_VALUE;
     uint16_t    ARM_BOOT_ARCH;
     uint8_t     FADT_Minor_Version;
@@ -57,6 +76,16 @@ typedef struct _acpi_fadt_t {
 #define ACPI_FADT_IAPC_8042     0x0002 /* PS2 present */
 #define ACPI_FADT_IAPC_VGA_NP   0x0004 /* VGA not present */
 
+
+//  MADT/APIC Multiple APIC Description Table
+typedef struct _acpi_madt_t {
+    acpi_header_t   Header;
+    uint32_t    lapicaddr;
+    uint32_t    Flags;
+    uint8_t     Structure[];
+} acpi_madt_t;
+
+#define ACPI_MADT_PCAT_COMPAT   0x0001 /* 8259 PIC Present */
 
 //  BGRT Boot Graphics Resource Table
 typedef struct _acpi_bgrt_t {

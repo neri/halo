@@ -231,9 +231,9 @@ static EFI_STATUS efi_get_configuration_table(EFI_GUID* guid, void** table) {
 
 static void* acpi_find_descriptor_table(acpi_rsd_ptr_t* acpi_rsd, char* name) {
     if(acpi_rsd->revision >= 2) {
-        uint8_t* xsdt = (uint8_t*)(intptr_t)acpi_rsd->xsdtaddr;
-        int n_tables = (*((uint32_t*)(xsdt+4))-36)/8;
-        uint64_t* tables = (uint64_t*)(xsdt+36);
+        acpi_xsdt_t* xsdt = (acpi_xsdt_t*)(intptr_t)acpi_rsd->xsdtaddr;
+        int n_tables = (xsdt->Header.length-sizeof(acpi_header_t))/sizeof(xsdt->Entry[0]);
+        uint64_t* tables = xsdt->Entry;
         for(int i=0; i<n_tables; i++) {
             uint32_t* p = (uint32_t*)(intptr_t)(tables[i]);
             uint32_t* q = (uint32_t*)name;
@@ -242,9 +242,9 @@ static void* acpi_find_descriptor_table(acpi_rsd_ptr_t* acpi_rsd, char* name) {
             }
         }
     } else {
-        uint8_t* rsdt = (uint8_t*)(intptr_t)acpi_rsd->rsdtaddr;
-        int n_tables = (*((uint32_t*)(rsdt+4))-36)/4;
-        uint32_t* tables = (uint32_t*)(rsdt+36);
+        acpi_rsdt_t* rsdt = (acpi_rsdt_t*)(intptr_t)acpi_rsd->rsdtaddr;
+        int n_tables = (rsdt->Header.length-sizeof(acpi_header_t))/sizeof(rsdt->Entry[0]);
+        uint32_t* tables = rsdt->Entry;
         for(int i=0; i<n_tables; i++) {
             uint32_t* p = (uint32_t*)(intptr_t)(tables[i]);
             uint32_t* q = (uint32_t*)name;
@@ -403,28 +403,33 @@ EFI_STATUS EFIAPI efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *systab) {
         goto error;
     }
 
-    //  ps2 check
-    // {
-    //     acpi_rsd_ptr_t* acpi_rsd_ptr;
-    //     EFI_GUID efi_acpi_20_table_guid = ACPI_20_TABLE_GUID;
-    //     status = efi_get_configuration_table(&efi_acpi_20_table_guid, (void**)&acpi_rsd_ptr);
-    //     if(EFI_ERROR(status)) {
-    //         EFI_GUID efi_acpi_table_guid = ACPI_TABLE_GUID;
-    //         status = efi_get_configuration_table(&efi_acpi_table_guid, (void**)&acpi_rsd_ptr);
-    //     }
-    //     if(EFI_ERROR(status)) {
-    //         efi_puts("Error: ACPI NOT FOUND\n");
-    //         goto error;
-    //     }
-    //
-    //     acpi_fadt_t* fadt = acpi_find_descriptor_table(acpi_rsd_ptr, "FACP");
-    //     Print(L"ACPI Info: SMI %04x %02x/%02x IAPC %04x Flags %08x\n", fadt->SMI_CMD, fadt->ACPI_ENABLE, fadt->ACPI_DISABLE, fadt->IAPC_BOOT_ARCH, fadt->Flags);
-    //
-    //     if((fadt->IAPC_BOOT_ARCH & ACPI_FADT_IAPC_8042) == 0) {
-    //         efi_puts("Error: PS2 NOT PRESENT\n");
-    //         goto error;
-    //     }
-    // }
+    //  ACPI
+    {
+        acpi_rsd_ptr_t* acpi_rsd_ptr;
+        EFI_GUID efi_acpi_20_table_guid = ACPI_20_TABLE_GUID;
+        status = efi_get_configuration_table(&efi_acpi_20_table_guid, (void**)&acpi_rsd_ptr);
+        if(EFI_ERROR(status)) {
+            EFI_GUID efi_acpi_table_guid = ACPI_TABLE_GUID;
+            status = efi_get_configuration_table(&efi_acpi_table_guid, (void**)&acpi_rsd_ptr);
+        }
+        if(EFI_ERROR(status)) {
+            efi_puts("Error: ACPI NOT FOUND\n");
+            goto error;
+        }
+
+        acpi_fadt_t* fadt = acpi_find_descriptor_table(acpi_rsd_ptr, "FACP");
+        acpi_madt_t* madt = acpi_find_descriptor_table(acpi_rsd_ptr, "APIC");
+        // Print(L"ACPI Info: SMI %04x %02x/%02x IAPC %04x Flags %08x\n", fadt->SMI_CMD, fadt->ACPI_ENABLE, fadt->ACPI_DISABLE, fadt->IAPC_BOOT_ARCH, fadt->Flags);
+
+        // if((fadt->IAPC_BOOT_ARCH & ACPI_FADT_IAPC_8042) == 0) {
+        //     efi_puts("Error: PS/2 NOT PRESENT\n");
+        //     goto error;
+        // }
+        if((madt->Flags & ACPI_MADT_PCAT_COMPAT) == 0) {
+            efi_puts("Error: 8259 PIC NOT PRESENT\n");
+            goto error;
+        }
+    }
 
     //  Init graphics
     status = init_gop(image, &gop);

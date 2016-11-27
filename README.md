@@ -17,8 +17,8 @@ UEFI環境ではりぼてOS系のOSをロードします。
 * BIOSに依存するOSは正しく動作しません。
 * PS/2ポートをサポートしない機種では操作できなかったり起動しない場合があります。
 * 32bit カラーモードをサポートしていないOSは描画が乱れるか全く表示されません。残念ながら現状ほとんどのOSは 32bit カラーモードに対応していません。
-* [32bitカラー対応の例](https://github.com/neri/harib27f_bpp32)
-* Intel Mac, Hyper-V は正しく正しく動作しません。
+* [32bitカラー対応の例1](https://github.com/neri/harib27f_32bpp) / [32bitカラー対応の例2](https://github.com/neri/harib27f_bpp32-b)
+* Intel Mac, Hyper-V は正しく動作しません。
 
 
 # 使い方

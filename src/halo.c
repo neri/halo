@@ -300,17 +300,19 @@ EFI_STATUS init_gop (IN EFI_HANDLE image, OUT EFI_GRAPHICS_OUTPUT_PROTOCOL** _go
             uint32_t mode_to_be = 0;
             EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE* mode = gop->Mode;
             EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* info = mode->Info;
-            for(int i=0; i<mode->MaxMode; i++) {
-                UINTN sizeOfInfo;
-                EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* info;
-                uefi_call_wrapper(gop->QueryMode, 4, gop, i, &sizeOfInfo, &info);
-                if((info->HorizontalResolution == edid_res_x) && (info->VerticalResolution == edid_res_y)) {
-                    mode_to_be = i;
-                    break;
+            if((edid_res_x > 0) && (edid_res_y > 0)) {
+                for(int i=0; i<mode->MaxMode; i++) {
+                    UINTN sizeOfInfo;
+                    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION* info;
+                    uefi_call_wrapper(gop->QueryMode, 4, gop, i, &sizeOfInfo, &info);
+                    if((info->HorizontalResolution == edid_res_x) && (info->VerticalResolution == edid_res_y)) {
+                        mode_to_be = i;
+                        break;
+                    }
                 }
-            }
-            if(mode->Mode != mode_to_be) {
-                uefi_call_wrapper(gop->SetMode, 2, gop, mode_to_be);
+                if(mode->Mode != mode_to_be) {
+                    uefi_call_wrapper(gop->SetMode, 2, gop, mode_to_be);
+                }
             }
             status = gop_check(gop);
             if (EFI_ERROR(status)) {
